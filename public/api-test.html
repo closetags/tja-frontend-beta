@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Connection Test - Event Manager</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background: #4FD1C5;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #38B2AC;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .api-url {
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Event Manager API Connection Test</h1>
+        
+        <div class="api-url">
+            <strong>API URL:</strong> <span id="apiUrl">Loading...</span>
+        </div>
+
+        <div class="test-section">
+            <h2>Test 1: Root Endpoint</h2>
+            <p>Tests if the backend server is running and responding</p>
+            <button onclick="testRoot()">Test Root Endpoint</button>
+            <div id="rootResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Test 2: Health Check</h2>
+            <p>Tests the health check endpoint</p>
+            <button onclick="testHealth()">Test Health Endpoint</button>
+            <div id="healthResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Test 3: CORS Check</h2>
+            <p>Tests if CORS is properly configured</p>
+            <button onclick="testCORS()">Test CORS</button>
+            <div id="corsResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Test 4: Login Endpoint</h2>
+            <p>Tests the login endpoint structure (without credentials)</p>
+            <button onclick="testLogin()">Test Login Endpoint</button>
+            <div id="loginResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Quick Diagnostics</h2>
+            <button onclick="runAllTests()">Run All Tests</button>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'https://realtadie.pythonanywhere.com';
+        const API_V1 = `${API_BASE_URL}/api/v1`;
+        
+        document.getElementById('apiUrl').textContent = API_V1;
+
+        function showResult(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="result ${type}">${message}</div>`;
+        }
+
+        async function testRoot() {
+            showResult('rootResult', 'Testing...', 'info');
+            try {
+                const response = await fetch(`${API_BASE_URL}/`, {
+                    method: 'GET',
+                    mode: 'cors',
+                });
+                
+                const data = await response.json();
+                showResult('rootResult', 
+                    `✅ Success!\n\nStatus: ${response.status}\n\nResponse:\n${JSON.stringify(data, null, 2)}`,
+                    'success'
+                );
+            } catch (error) {
+                showResult('rootResult', 
+                    `❌ Error!\n\n${error.message}\n\nThis usually means:\n- Server is not running\n- Wrong URL\n- Network issue`,
+                    'error'
+                );
+            }
+        }
+
+        async function testHealth() {
+            showResult('healthResult', 'Testing...', 'info');
+            try {
+                const response = await fetch(`${API_BASE_URL}/health/`, {
+                    method: 'GET',
+                    mode: 'cors',
+                });
+                
+                const data = await response.json();
+                showResult('healthResult', 
+                    `✅ Success!\n\nStatus: ${response.status}\n\nResponse:\n${JSON.stringify(data, null, 2)}`,
+                    'success'
+                );
+            } catch (error) {
+                showResult('healthResult', 
+                    `❌ Error!\n\n${error.message}`,
+                    'error'
+                );
+            }
+        }
+
+        async function testCORS() {
+            showResult('corsResult', 'Testing...', 'info');
+            try {
+                const response = await fetch(`${API_V1}/auth/login/`, {
+                    method: 'OPTIONS',
+                    headers: {
+                        'Access-Control-Request-Method': 'POST',
+                        'Access-Control-Request-Headers': 'Content-Type',
+                    },
+                });
+                
+                const corsHeaders = {
+                    'Access-Control-Allow-Origin': response.headers.get('Access-Control-Allow-Origin'),
+                    'Access-Control-Allow-Methods': response.headers.get('Access-Control-Allow-Methods'),
+                    'Access-Control-Allow-Headers': response.headers.get('Access-Control-Allow-Headers'),
+                    'Access-Control-Allow-Credentials': response.headers.get('Access-Control-Allow-Credentials'),
+                };
+                
+                const hasOrigin = !!corsHeaders['Access-Control-Allow-Origin'];
+                
+                showResult('corsResult', 
+                    `${hasOrigin ? '✅' : '❌'} CORS ${hasOrigin ? 'Enabled' : 'Not Configured'}\n\nStatus: ${response.status}\n\nCORS Headers:\n${JSON.stringify(corsHeaders, null, 2)}`,
+                    hasOrigin ? 'success' : 'error'
+                );
+            } catch (error) {
+                showResult('corsResult', 
+                    `❌ Error!\n\n${error.message}`,
+                    'error'
+                );
+            }
+        }
+
+        async function testLogin() {
+            showResult('loginResult', 'Testing...', 'info');
+            try {
+                const response = await fetch(`${API_V1}/auth/login/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username: 'test', password: 'test' }),
+                });
+                
+                const text = await response.text();
+                let data;
+                try {
+                    data = JSON.parse(text);
+                } catch {
+                    data = text;
+                }
+                
+                showResult('loginResult', 
+                    `${response.ok ? '✅' : '⚠️'} Login endpoint responding\n\nStatus: ${response.status}\n\nNote: 401 (Unauthorized) is expected for invalid credentials\n\nResponse:\n${JSON.stringify(data, null, 2) || text}`,
+                    response.status === 401 ? 'success' : (response.ok ? 'success' : 'error')
+                );
+            } catch (error) {
+                showResult('loginResult', 
+                    `❌ Error!\n\n${error.message}\n\nThis means the login endpoint is not accessible`,
+                    'error'
+                );
+            }
+        }
+
+        async function runAllTests() {
+            await testRoot();
+            await new Promise(r => setTimeout(r, 500));
+            await testHealth();
+            await new Promise(r => setTimeout(r, 500));
+            await testCORS();
+            await new Promise(r => setTimeout(r, 500));
+            await testLogin();
+        }
+
+        // Auto-run root test on load
+        window.onload = () => {
+            testRoot();
+        };
+    </script>
+</body>
+</html>
