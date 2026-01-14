@@ -59,19 +59,33 @@ export default function RSVPPage() {
     if (!qrToken || !rsvpData) return;
     
     try {
-      const response = await fetch(getQRCodeImageUrl(qrToken));
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${rsvpData.event.name.replace(/\s+/g, '_')}_QR_Code.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      // Open image in new tab - user can long-press/right-click to save
+      const imageUrl = getQRCodeImageUrl(qrToken);
+      
+      // Try fetch approach first for proper download
+      const response = await fetch(imageUrl, {
+        mode: 'cors',
+        credentials: 'omit',
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${rsvpData.event.name.replace(/\s+/g, '_')}_QR_Code.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      } else {
+        // Fallback: open in new tab
+        window.open(imageUrl, '_blank');
+      }
     } catch (err) {
       console.error('Failed to download QR code:', err);
-      alert('Failed to download QR code. Please try again.');
+      // Fallback: open in new tab so user can save manually
+      window.open(getQRCodeImageUrl(qrToken), '_blank');
     }
   };
 
