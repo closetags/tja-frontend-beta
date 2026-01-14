@@ -89,20 +89,43 @@ export default function RSVPPage() {
     }
   };
 
-  // Add to Apple Wallet (opens wallet pass endpoint)
-  const handleAddToAppleWallet = () => {
-    if (!qrToken) return;
+  // Get ticket image URL (styled ticket with QR code)
+  const getTicketImageUrl = (qrToken: string) => {
+    return `${API_URL}/ticket/image/${qrToken}/`;
+  };
+
+  // Download styled ticket image
+  const handleDownloadTicket = async () => {
+    if (!qrToken || !rsvpData) return;
     
-    // For now, show an alert with instructions
-    // Full Apple Wallet integration requires signing certificates
-    alert(
-      'Apple Wallet Integration\n\n' +
-      'To add this ticket to your Apple Wallet:\n\n' +
-      '1. Download the QR code\n' +
-      '2. Save it to your Photos\n' +
-      '3. Take a screenshot of this page\n\n' +
-      'Full Apple Wallet pass support coming soon!'
-    );
+    try {
+      const imageUrl = getTicketImageUrl(qrToken);
+      
+      // Try fetch approach first for proper download
+      const response = await fetch(imageUrl, {
+        mode: 'cors',
+        credentials: 'omit',
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${rsvpData.event.name.replace(/\s+/g, '_')}_Ticket.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      } else {
+        // Fallback: open in new tab
+        window.open(imageUrl, '_blank');
+      }
+    } catch (err) {
+      console.error('Failed to download ticket:', err);
+      // Fallback: open in new tab so user can save manually
+      window.open(getTicketImageUrl(qrToken), '_blank');
+    }
   };
 
   useEffect(() => {
@@ -373,12 +396,12 @@ export default function RSVPPage() {
                         </Button>
                         
                         <Button
-                          onClick={handleAddToAppleWallet}
+                          onClick={handleDownloadTicket}
                           variant="outline"
-                          className="border-2 border-gray-800 hover:bg-gray-800 hover:text-white px-6 py-3 rounded-xl font-medium transition-all"
+                          className="border-2 border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white px-6 py-3 rounded-xl font-medium transition-all"
                         >
                           <Wallet className="h-4 w-4 mr-2" />
-                          Add to Apple Wallet
+                          Save Event Ticket
                         </Button>
                       </div>
                     </div>
