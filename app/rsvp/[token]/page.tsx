@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { Calendar, MapPin, Clock, CheckCircle, XCircle, Loader2, PartyPopper, Heart } from 'lucide-react';
+import { Calendar, MapPin, Clock, CheckCircle, XCircle, Loader2, PartyPopper, Heart, Download, Wallet, QrCode } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface RSVPData {
@@ -30,6 +30,7 @@ interface RSVPData {
     country: string;
   };
   already_responded: boolean;
+  qr_token?: string;
 }
 
 export default function RSVPPage() {
@@ -44,8 +45,51 @@ export default function RSVPPage() {
   const [error, setError] = useState<string | null>(null);
   const [responseMessage, setResponseMessage] = useState<string | null>(null);
   const [hasResponded, setHasResponded] = useState(false);
+  const [qrToken, setQrToken] = useState<string | null>(null);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+
+  // Get QR code image URL from the backend endpoint
+  const getQRCodeImageUrl = (qrToken: string) => {
+    return `${API_URL}/qr/image/${qrToken}/`;
+  };
+
+  // Download QR code as image
+  const handleDownloadQR = async () => {
+    if (!qrToken || !rsvpData) return;
+    
+    try {
+      const response = await fetch(getQRCodeImageUrl(qrToken));
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${rsvpData.event.name.replace(/\s+/g, '_')}_QR_Code.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to download QR code:', err);
+      alert('Failed to download QR code. Please try again.');
+    }
+  };
+
+  // Add to Apple Wallet (opens wallet pass endpoint)
+  const handleAddToAppleWallet = () => {
+    if (!qrToken) return;
+    
+    // For now, show an alert with instructions
+    // Full Apple Wallet integration requires signing certificates
+    alert(
+      'Apple Wallet Integration\n\n' +
+      'To add this ticket to your Apple Wallet:\n\n' +
+      '1. Download the QR code\n' +
+      '2. Save it to your Photos\n' +
+      '3. Take a screenshot of this page\n\n' +
+      'Full Apple Wallet pass support coming soon!'
+    );
+  };
 
   useEffect(() => {
     fetchRSVPData();
@@ -75,6 +119,11 @@ export default function RSVPPage() {
 
       const data = await response.json();
       setRsvpData(data);
+      
+      // Set QR token if guest has accepted
+      if (data.qr_token) {
+        setQrToken(data.qr_token);
+      }
       
       if (data.already_responded) {
         setHasResponded(true);
@@ -110,6 +159,12 @@ export default function RSVPPage() {
       if (res.ok) {
         setHasResponded(true);
         setResponseMessage(data.message);
+        
+        // Set QR token if accepted
+        if (data.qr_token) {
+          setQrToken(data.qr_token);
+        }
+        
         if (rsvpData) {
           setRsvpData({
             ...rsvpData,
@@ -119,6 +174,7 @@ export default function RSVPPage() {
               status_display: data.guest.status_display,
             },
             already_responded: true,
+            qr_token: data.qr_token,
           });
         }
       } else {
@@ -270,12 +326,64 @@ export default function RSVPPage() {
                 </div>
                 <p className="text-gray-600 mt-4">{responseMessage}</p>
                 
-                {guest.status === 'invitation_accepted' && (
+                {(guest.status === 'invitation_accepted' || guest.status === 'checked_in') && qrToken && (
+                  <div className="mt-8">
+                    {/* QR Code Section */}
+                    <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-2xl p-6 border border-purple-100">
+                      <div className="flex items-center justify-center gap-2 mb-4">
+                        <QrCode className="h-6 w-6 text-purple-600" />
+                        <h3 className="text-lg font-semibold text-gray-800">Your Event Ticket</h3>
+                      </div>
+                      
+                      {/* QR Code Image - uses backend endpoint */}
+                      <div className="bg-white rounded-xl p-4 shadow-sm mb-4 inline-block">
+                        <img 
+                          src={getQRCodeImageUrl(qrToken)} 
+                          alt="Event QR Code" 
+                          className="w-48 h-48 mx-auto"
+                        />
+                      </div>
+                      
+                      <p className="text-purple-600 text-sm mb-4">
+                        Show this QR code at the event for check-in
+                      </p>
+                      
+                      {/* Action Buttons */}
+                      <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                        <Button
+                          onClick={handleDownloadQR}
+                          className="bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-white px-6 py-3 rounded-xl font-medium shadow-md transition-all hover:scale-105"
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          Download QR Code
+                        </Button>
+                        
+                        <Button
+                          onClick={handleAddToAppleWallet}
+                          variant="outline"
+                          className="border-2 border-gray-800 hover:bg-gray-800 hover:text-white px-6 py-3 rounded-xl font-medium transition-all"
+                        >
+                          <Wallet className="h-4 w-4 mr-2" />
+                          Add to Apple Wallet
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    {/* Helpful tip */}
+                    <div className="mt-4 p-3 bg-amber-50 rounded-xl border border-amber-100">
+                      <p className="text-amber-700 text-sm">
+                        💡 <span className="font-medium">Tip:</span> Save this QR code to your photos or add to your wallet for easy access at the event.
+                      </p>
+                    </div>
+                  </div>
+                )}
+                
+                {guest.status === 'invitation_accepted' && !qrToken && (
                   <div className="mt-6 p-4 bg-purple-50 rounded-2xl">
                     <Heart className="h-6 w-6 text-purple-500 mx-auto mb-2" />
                     <p className="text-purple-700 font-medium">We can't wait to see you!</p>
                     <p className="text-purple-600 text-sm mt-1">
-                      Remember to bring your QR code for check-in
+                      Your QR code will be sent to your email
                     </p>
                   </div>
                 )}
